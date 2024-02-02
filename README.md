@@ -4,7 +4,7 @@
 
 This library provides convenient access to the Test Acme REST API from server-side TypeScript or JavaScript.
 
-The API documentation can be found [here](https://docs.test-acme.com).
+The REST API documentation can be found [on docs.test-acme.com](https://docs.test-acme.com). The full API of this library can be found in [api.md](api.md).
 
 ## Installation
 
@@ -16,8 +16,9 @@ yarn add test-acme
 
 ## Usage
 
-The full API of this library can be found in [api.md](https://www.github.com/test-acme/test-acme-node/blob/main/api.md).
+The full API of this library can be found in [api.md](api.md).
 
+<!-- prettier-ignore -->
 ```js
 import TestAcme from 'test-acme';
 
@@ -39,6 +40,7 @@ main();
 
 This library includes TypeScript definitions for all request params and response fields. You may import and use them like so:
 
+<!-- prettier-ignore -->
 ```ts
 import TestAcme from 'test-acme';
 
@@ -62,6 +64,7 @@ When the library is unable to connect to the API,
 or if the API returns a non-success status code (i.e., 4xx or 5xx response),
 a subclass of `APIError` will be thrown:
 
+<!-- prettier-ignore -->
 ```ts
 async function main() {
   const status = await testAcme.status.retrieve().catch((err) => {
@@ -141,6 +144,7 @@ The "raw" `Response` returned by `fetch()` can be accessed through the `.asRespo
 
 You can also use the `.withResponse()` method to get the raw `Response` along with the parsed data.
 
+<!-- prettier-ignore -->
 ```ts
 const testAcme = new TestAcme();
 
@@ -161,16 +165,15 @@ If you would prefer to use a global, web-standards-compliant `fetch` function ev
 (for example, if you are running Node with `--experimental-fetch` or using NextJS which polyfills with `undici`),
 add the following import before your first import `from "TestAcme"`:
 
-<!-- prettier-ignore -->
 ```ts
 // Tell TypeScript and the package to use the global web fetch instead of node-fetch.
 // Note, despite the name, this does not add any polyfills, but expects them to be provided if needed.
-import "test-acme/shims/web";
-import TestAcme from "test-acme";
+import 'test-acme/shims/web';
+import TestAcme from 'test-acme';
 ```
 
 To do the inverse, add `import "test-acme/shims/node"` (which does import polyfills).
-This can also be useful if you are getting the wrong TypeScript types for `Response` - more details [here](https://github.com/test-acme/test-acme-node/tree/main/src/_shims#readme).
+This can also be useful if you are getting the wrong TypeScript types for `Response` - more details [here](https://github.com/yjp20/acme-node/tree/main/src/_shims#readme).
 
 You may also provide a custom `fetch` function when instantiating the client,
 which can be used to inspect or alter the `Request` or `Response` before/after each request:
@@ -180,8 +183,8 @@ import { fetch } from 'undici'; // as one example
 import TestAcme from 'test-acme';
 
 const client = new TestAcme({
-  fetch: (url: RequestInfo, init?: RequestInfo): Response => {
-    console.log('About to make request', url, init);
+  fetch: async (url: RequestInfo, init?: RequestInfo): Promise<Response> => {
+    console.log('About to make a request', url, init);
     const response = await fetch(url, init);
     console.log('Got response', response);
     return response;
@@ -225,7 +228,7 @@ This package generally follows [SemVer](https://semver.org/spec/v2.0.0.html) con
 
 We take backwards-compatibility seriously and work hard to ensure you can rely on a smooth upgrade experience.
 
-We are keen for your feedback; please open an [issue](https://www.github.com/test-acme/test-acme-node/issues) with questions, bugs, or suggestions.
+We are keen for your feedback; please open an [issue](https://www.github.com/yjp20/acme-node/issues) with questions, bugs, or suggestions.
 
 ## Requirements
 

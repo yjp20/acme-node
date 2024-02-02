@@ -28,25 +28,25 @@ describe('instantiate client', () => {
 
     test('they are used in the request', () => {
       const { req } = client.buildRequest({ path: '/foo', method: 'post' });
-      expect((req.headers as Headers)['X-My-Default-Header']).toEqual('2');
+      expect((req.headers as Headers)['x-my-default-header']).toEqual('2');
     });
 
-    test('can be overriden with `undefined`', () => {
+    test('can ignore `undefined` and leave the default', () => {
       const { req } = client.buildRequest({
         path: '/foo',
         method: 'post',
         headers: { 'X-My-Default-Header': undefined },
       });
-      expect((req.headers as Headers)['X-My-Default-Header']).toBeUndefined();
+      expect((req.headers as Headers)['x-my-default-header']).toEqual('2');
     });
 
-    test('can be overriden with `null`', () => {
+    test('can be removed with `null`', () => {
       const { req } = client.buildRequest({
         path: '/foo',
         method: 'post',
         headers: { 'X-My-Default-Header': null },
       });
-      expect((req.headers as Headers)['X-My-Default-Header']).toBeUndefined();
+      expect(req.headers as Headers).not.toHaveProperty('x-my-default-header');
     });
   });
 
@@ -134,7 +134,7 @@ describe('instantiate client', () => {
     });
 
     afterEach(() => {
-      process.env['SINK_BASE_URL'] = undefined;
+      process.env['TEST_ACME_BASE_URL'] = undefined;
     });
 
     test('explicit option', () => {
@@ -146,6 +146,18 @@ describe('instantiate client', () => {
       process.env['TEST_ACME_BASE_URL'] = 'https://example.com/from_env';
       const client = new TestAcme({ apiKey: 'My API Key' });
       expect(client.baseURL).toEqual('https://example.com/from_env');
+    });
+
+    test('empty env variable', () => {
+      process.env['TEST_ACME_BASE_URL'] = ''; // empty
+      const client = new TestAcme({ apiKey: 'My API Key' });
+      expect(client.baseURL).toEqual('https://api.acme.com/v1');
+    });
+
+    test('blank env variable', () => {
+      process.env['TEST_ACME_BASE_URL'] = '  '; // blank
+      const client = new TestAcme({ apiKey: 'My API Key' });
+      expect(client.baseURL).toEqual('https://api.acme.com/v1');
     });
 
     test('env variable with environment', () => {
@@ -192,28 +204,44 @@ describe('request building', () => {
   describe('Content-Length', () => {
     test('handles multi-byte characters', () => {
       const { req } = client.buildRequest({ path: '/foo', method: 'post', body: { value: '—' } });
-      expect((req.headers as Record<string, string>)['Content-Length']).toEqual('20');
+      expect((req.headers as Record<string, string>)['content-length']).toEqual('20');
     });
 
     test('handles standard characters', () => {
       const { req } = client.buildRequest({ path: '/foo', method: 'post', body: { value: 'hello' } });
-      expect((req.headers as Record<string, string>)['Content-Length']).toEqual('22');
+      expect((req.headers as Record<string, string>)['content-length']).toEqual('22');
+    });
+  });
+
+  describe('custom headers', () => {
+    test('handles undefined', () => {
+      const { req } = client.buildRequest({
+        path: '/foo',
+        method: 'post',
+        body: { value: 'hello' },
+        headers: { 'X-Foo': 'baz', 'x-foo': 'bar', 'x-Foo': undefined, 'x-baz': 'bam', 'X-Baz': null },
+      });
+      expect((req.headers as Record<string, string>)['x-foo']).toEqual('bar');
+      expect((req.headers as Record<string, string>)['x-Foo']).toEqual(undefined);
+      expect((req.headers as Record<string, string>)['X-Foo']).toEqual(undefined);
+      expect((req.headers as Record<string, string>)['x-baz']).toEqual(undefined);
     });
   });
 });
 
 describe('retries', () => {
-  test('single retry', async () => {
+  test('retry on timeout', async () => {
     let count = 0;
     const testFetch = async (url: RequestInfo, { signal }: RequestInit = {}): Promise<Response> => {
-      if (!count++)
-        return new Promise(
-          (resolve, reject) => signal?.addEventListener('abort', () => reject(new Error('timed out'))),
+      if (count++ === 0) {
+        return new Promise((resolve, reject) =>
+          signal?.addEventListener('abort', () => reject(new Error('timed out'))),
         );
+      }
       return new Response(JSON.stringify({ a: 1 }), { headers: { 'Content-Type': 'application/json' } });
     };
 
-    const client = new TestAcme({ apiKey: 'My API Key', timeout: 2000, fetch: testFetch });
+    const client = new TestAcme({ apiKey: 'My API Key', timeout: 10, fetch: testFetch });
 
     expect(await client.request({ path: '/foo', method: 'get' })).toEqual({ a: 1 });
     expect(count).toEqual(2);
@@ -224,5 +252,59 @@ describe('retries', () => {
         .then((r) => r.text()),
     ).toEqual(JSON.stringify({ a: 1 }));
     expect(count).toEqual(3);
-  }, 10000);
+  });
+
+  test('retry on 429 with retry-after', async () => {
+    let count = 0;
+    const testFetch = async (url: RequestInfo, { signal }: RequestInit = {}): Promise<Response> => {
+      if (count++ === 0) {
+        return new Response(undefined, {
+          status: 429,
+          headers: {
+            'Retry-After': '0.1',
+          },
+        });
+      }
+      return new Response(JSON.stringify({ a: 1 }), { headers: { 'Content-Type': 'application/json' } });
+    };
+
+    const client = new TestAcme({ apiKey: 'My API Key', fetch: testFetch });
+
+    expect(await client.request({ path: '/foo', method: 'get' })).toEqual({ a: 1 });
+    expect(count).toEqual(2);
+    expect(
+      await client
+        .request({ path: '/foo', method: 'get' })
+        .asResponse()
+        .then((r) => r.text()),
+    ).toEqual(JSON.stringify({ a: 1 }));
+    expect(count).toEqual(3);
+  });
+
+  test('retry on 429 with retry-after-ms', async () => {
+    let count = 0;
+    const testFetch = async (url: RequestInfo, { signal }: RequestInit = {}): Promise<Response> => {
+      if (count++ === 0) {
+        return new Response(undefined, {
+          status: 429,
+          headers: {
+            'Retry-After-Ms': '10',
+          },
+        });
+      }
+      return new Response(JSON.stringify({ a: 1 }), { headers: { 'Content-Type': 'application/json' } });
+    };
+
+    const client = new TestAcme({ apiKey: 'My API Key', fetch: testFetch });
+
+    expect(await client.request({ path: '/foo', method: 'get' })).toEqual({ a: 1 });
+    expect(count).toEqual(2);
+    expect(
+      await client
+        .request({ path: '/foo', method: 'get' })
+        .asResponse()
+        .then((r) => r.text()),
+    ).toEqual(JSON.stringify({ a: 1 }));
+    expect(count).toEqual(3);
+  });
 });
