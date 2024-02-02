@@ -11,7 +11,7 @@ jobs:
   lint:
     name: lint
     runs-on: ubuntu-latest
-    if: github.repository == 'test-acme/test-acme-node'
+    if: github.repository == 'yjp20/acme-node'
 
     steps:
       - uses: actions/checkout@v3
