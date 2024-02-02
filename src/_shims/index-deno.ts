@@ -64,7 +64,7 @@ const _Blob = Blob;
 type _Blob = Blob;
 export { _Blob as Blob };
 
-export async function getMultipartRequestOptions<T extends {} = Record<string, unknown>>(
+export async function getMultipartRequestOptions<T = Record<string, unknown>>(
   form: FormData,
   opts: RequestOptions<T>,
 ): Promise<RequestOptions<T>> {
@@ -79,7 +79,7 @@ export function getDefaultAgent(url: string) {
 }
 export function fileFromPath() {
   throw new Error(
-    'The `fileFromPath` function is only supported in Node. See the README for more details: https://www.github.com/test-acme/test-acme-node#file-uploads',
+    'The `fileFromPath` function is only supported in Node. See the README for more details: https://www.github.com/yjp20/acme-node#file-uploads',
   );
 }
 
