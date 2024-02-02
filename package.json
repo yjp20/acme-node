@@ -1,6 +1,6 @@
 {
   "name": "test-acme",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "The official TypeScript library for the Test Acme API",
   "author": "Test Acme <support@acme.com>",
   "types": "dist/index.d.ts",
@@ -9,7 +9,9 @@
   "repository": "github:yjp20/acme-node",
   "license": "Apache-2.0",
   "packageManager": "yarn@1.22.21",
-  "files": ["*"],
+  "files": [
+    "*"
+  ],
   "private": false,
   "scripts": {
     "test": "bin/check-test-server && yarn jest",
